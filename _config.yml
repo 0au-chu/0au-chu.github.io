@@ -24,7 +24,7 @@ description              : "Be Brave, Be Humble"
 url                      : "https://github.com/0ag-chu" # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : # 서브 경로가 있는 경우 기재 # the subpath of your site, e.g. "/blog"
 repository               : # GitHub username/repo-name e.g. "mmistakes/minimal-mistakes"
-teaser                   : "/assets/images/fall.png" # path of fallback teaser image, e.g. "/assets/images/500x300.png"
+teaser                   : "/assets/images/fall.PNG" # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 logo                     : # 최상단 메뉴 바에 사이트 로고 넣기 # path of logo image to display in the masthead, e.g. "/assets/images/88x88.png"
 masthead_title           : # overrides the website title displayed in the masthead, use " " for no title
 # breadcrumbs            : false # true, false (default)
@@ -75,7 +75,7 @@ facebook:
   username               :
   app_id                 :
   publisher              :
-og_image                 : "/assets/images/fall.png" # 오픈그래프 이미지 # Open Graph/Twitter default site image
+og_image                 : "/assets/images/fall.PNG" # 오픈그래프 이미지 # Open Graph/Twitter default site image
 # For specifying social profiles
 # - https://developers.google.com/structured-data/customize/social-profiles
 social:
@@ -94,7 +94,7 @@ analytics:
 # Site Author
 author:
   name             : "츄츄"
-  avatar           : "/assets/images/fall.png" # path of avatar image, e.g. "/assets/images/fall.png"
+  avatar           : "/assets/images/fall.PNG" # path of avatar image, e.g. "/assets/images/fall.png"
   bio              : "Be Brave, Be Humble"
   location         : "South Korea"
   email            :
