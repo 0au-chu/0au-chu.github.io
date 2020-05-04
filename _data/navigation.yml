@@ -1,12 +1,17 @@
 # main links
 main:
   - title: "About"
-     url: https://0ag-chu.github.io/about/
+    url: /about/
   - title: "Categories"
-    url: https://0ag-chu.github.io/categories/
+    url: /categories/
   - title: "Tags"
-    url: https://0ag-chu.github.io/tags/
+    url: /tags/
+  # - title: "Sample Posts"
+  #   url: /year-archive/
   # - title: "Sample Collections"
   #   url: /collection-archive/
   # - title: "Sitemap"
   #   url: /sitemap/
+
+
+
