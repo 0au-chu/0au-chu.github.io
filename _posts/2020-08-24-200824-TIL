@@ -1,0 +1,31 @@
+---
+title:  "TIL 200824"
+
+categories:
+  - TIL
+tags:
+  - TIL
+  - TIS
+
+last_modified_at: 2020-08-24T08:06:00-05:00
+---
+
+## 첫출근
+
+*카카오 api 불러오기
+
+**refesh token이 있다면 access token을 다시 갱신할 수 있음.
+
+**Authorization, Content-type 모두 header로 쓰임. 전자는 get 후자는 post로 불러온다(??
+
+**json, requests를 import 해서 웹사이트 내용 불러온다
+
+      url = "https://kapi.kakao.com/v1/moment/campaigns?adAccountId=51405&config=ON"
+      header = {'Authorization' : 'Bearer {USER_ACCESS_TOKEN}'}
+      r = requests.get(url, headers = header)
+      print(json.loads(r.text))
+
+
+** 갱신한 access token을 이용해 카카오의 캠페인 불러옴
+
+근데 왜 안되지?!!?!
