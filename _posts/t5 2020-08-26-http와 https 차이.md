@@ -8,7 +8,7 @@ tags:
 - TIS
 - TIP
 
-last_modified_at: 2020-08-26T08:06:00-05:00
+last_modified_at: 2020-08-26T08:11:00-05:00
 ---
 
 http https 차이
