@@ -1,0 +1,23 @@
+---
+title: "매개변수와 반환값"
+
+categories:
+- TIPS
+tags:
+- TIL
+- TIS
+- TIP
+
+last_modified_at: 2020-08-28T08:06:00-05:00
+---
+x와 y
+
+함수 만들때 참고
+
+[파이썬 코딩 도장: 29.3 함수의 결과를 반환하기](https://dojang.io/mod/page/view.php?id=2339)
+
+매개변수 없이 return값만 있는 함수
+
+return으로 함수 중간에서 빠져나오기
+
+둘 다 가능.
