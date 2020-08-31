@@ -1,0 +1,24 @@
+---
+title: "CORS"
+
+categories:
+- TIPS
+tags:
+- TIL
+- TIS
+- TIP
+
+last_modified_at: 2020-08-28T08:11:00-05:00
+---
+
+언젠가 알아볼 것 같은 CORS에 대해
+
+*CORS
+
+Cross Origin Resource Sharing
+
+도메인 또는 포트가 다른 서버의 자원을 요청하는 매커니즘
+
+크로스 도메인
+
+[CORS는 왜 이렇게 우리를 힘들게 하는걸까? | Evan's Tech Blog](https://evan-moon.github.io/2020/05/21/about-cors/)
