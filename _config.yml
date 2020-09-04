@@ -38,7 +38,7 @@ comments:
   facebook:
     # https://developers.facebook.com/docs/plugins/comments
     appid                :
-    num_posts            : # 5 (default) # 한 페이지에 보여주는 포스트 수
+    num_posts            : 1000 # 5 (default) # 한 페이지에 보여주는 포스트 수
     colorscheme          : # "light" (default), "dark"
   utterances:
     theme                : # "github-light" (default), "github-dark"
@@ -207,7 +207,7 @@ sass:
 
 # Outputting # 블로그 표시 방법 설정
 permalink: /:categories/:title/
-paginate: 5 # 첫 페이지에 보여줄 최근 게시물 수 지정 # amount of posts to show
+paginate: 1000 # 첫 페이지에 보여줄 최근 게시물 수 지정 # amount of posts to show
 paginate_path: /page:num/
 timezone: Asia/Seoul # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
