@@ -93,7 +93,7 @@ analytics:
 
 # Site Author
 author:
-  name             : ""
+  name             : "추로스"
   avatar           : "/assets/images/Churros.png" # path of avatar image, e.g. "/assets/images/fall.png"
   bio              : "Be Brave, Be Humble"
   location         : "South Korea"
