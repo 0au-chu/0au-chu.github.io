@@ -1,0 +1,24 @@
+---
+title: "private static final"
+
+categories:
+- TIPS
+tags:
+- TIL
+- TIS
+- TIP
+
+last_modified_at: 2020-09-09T08:07:00-05:00
+---
+
+왜 private static final을 쓰는지
+
+* static
+
+static을 사용하면 메모리가 jvm의 static 메모리에 올라가기 때문에 초기화 과정 필요X
+
+선언된 변수, 메서드에 곧장 접근 가능
+
+상수로 사용할 때는 호출할 때마다 새롭게 인스턴스화 할 필요가 없기 때문에 한 번 메모리에 올리고 계속 같은 값을 갖다 쓰는 것
+
+[Java 왜 private 상수는 관습적으로 private static final로 선언할까? :: Carry On Progamming](https://zorba91.tistory.com/275)
