@@ -1,0 +1,476 @@
+import json
+import requests
+import datetime
+import pandas
+import boto3
+import os
+import time
+
+def get_camp_data(headers, start_date, end_date):
+    global camp_resultData, camp_payload, camp_resJson
+    camp_url = "https://api.searchads.apple.com/api/v3/campaigns"
+    camp_resultData = []  # 최종 결과 축적용
+    camp_payload = {
+        "startTime": start_date,
+        "endTime": end_date,
+        "selector": {
+            "orderBy": [{
+                "field": "campaignName",
+                "sortOrder": "ASCENDING"
+            }],
+            "pagination": {"offset": 0, "limit": 1000}},
+        "timeZone": "ORTZ",
+        "returnRecordsWithNoMetrics": True,
+        "returnRowTotals": False,
+        "returnGrandTotals": False
+    }
+    camp_payload = json.dumps(camp_payload)
+
+    # 첫페이지 데이터 우선 불러오기(ASA는 한번에 limit 1000개 까지만)
+    ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    ASA_campaign_Download = requests.get(camp_url,
+                                         cert=(ROOT_DIR + '/' + 'ECHO_APPLESEARCH_ETL2.pem',
+                                               ROOT_DIR + '/' + 'ECHO_APPLESEARCH__ETL2.key'),
+                                         verify=True, headers=headers, data=camp_payload)
+    print(ASA_campaign_Download.text)
+    camp_resJson = json.loads(ASA_campaign_Download.text.encode(encoding='euckr', errors='ignore').decode(encoding='euckr'))
+
+    # 첫페이지 데이터 축적
+    camp_resultData.extend(camp_resJson['data'])
+
+    return camp_resultData
+
+
+def get_adgroup_data(headers, start_date, end_date, camp_info):
+    resultData = []  # 최종 결과 축적용
+    payload = {
+        "startTime": start_date,
+        "endTime": end_date,
+        "selector": {
+            "orderBy": [
+                {
+                    "field": "adGroupId",
+                    "sortOrder": "ASCENDING"
+                }
+            ],
+            "conditions": [
+                {
+                    "field": "deleted",
+                    "operator": "EQUALS",
+                    "values": [
+                        "false"
+                    ]
+                }
+            ],
+            "pagination": {
+                "offset": 0,
+                "limit": 1000
+            }
+        },
+        "timeZone": "ORTZ",
+        "granularity": "DAILY",
+        "returnRecordsWithNoMetrics": True,
+        "returnRowTotals": True,
+        "returnGrandTotals": True
+    }
+    payload = json.dumps(payload)
+
+    campid = camp_info['campaignId']
+
+    adgroup_url = "https://api.searchads.apple.com/api/v3/reports/campaigns/" + str(campid) + "/adgroups"
+
+    # 첫페이지 데이터 우선 불러오기(ASA는 한번에 limit 1000개 까지만)
+    ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    ASA_Download = requests.post(adgroup_url,
+                                 cert=(ROOT_DIR + '/' + 'ECHO_APPLESEARCH_ETL2.pem',
+                                       ROOT_DIR + '/' + 'ECHO_APPLESEARCH__ETL2.key'),
+                                 verify=True, headers=headers, data=payload)
+    print(ASA_Download.text)
+    # 결과데이터 String -> Json
+    resJson = json.loads(ASA_Download.text.encode(encoding='euckr', errors='ignore').decode(encoding='euckr'))
+    # 첫페이지 데이터 축적
+    resultData.extend(resJson['data']['reportingDataResponse']['row'])  # 데이터 저장
+
+    # 그룹은 그냥 천개 안가져옴... SearchMatch만 최종 데이터에 추가
+
+    return resultData
+
+
+def get_kwd_data(headers, start_date, end_date, camp_info):
+    global resultData, campid
+    resultData = []  # 최종 결과 축적용
+    payload = {
+        "startTime": start_date,
+        "endTime": end_date,
+        "selector": {
+            "orderBy": [
+                {
+                    "field": "keyword",
+                    "sortOrder": "ASCENDING"
+                }
+            ],
+            "pagination": {
+                "offset": 0,
+                "limit": 1000
+            }
+        },
+        "timeZone": "ORTZ",
+        "granularity": "DAILY",
+        "returnRowTotals": False,
+        "returnGrandTotals": False,
+        "returnRecordsWithNoMetrics": True
+    }
+    payload = json.dumps(payload)
+
+    campid = camp_info['campaignId']
+    campaignName = camp_info['campaign']
+
+    keyword_url = "https://api.searchads.apple.com/api/v3/reports/campaigns/" + str(campid) + "/keywords"
+
+    # 첫페이지 데이터 우선 불러오기(ASA는 한번에 limit 1000개 까지만)
+    ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    ASA_Download = requests.post(keyword_url,
+                                 cert=(ROOT_DIR + '/' + 'ECHO_APPLESEARCH_ETL2.pem',
+                                       ROOT_DIR + '/' + 'ECHO_APPLESEARCH__ETL2.key'),
+                                 verify=True, headers=headers, data=payload)
+
+    # 결과데이터 String -> Json
+    resJson = json.loads(ASA_Download.text.encode(encoding='euckr', errors='ignore').decode(encoding='euckr'))
+
+    # 첫페이지 데이터 축적
+    resultData.extend(resJson['data']['reportingDataResponse']['row'])  # 데이터 저장
+
+    # 페이지 계산용
+    if resJson['pagination']['totalResults'] > 1000:
+        page = int(resJson['pagination']['totalResults'] / 1000) + 1
+    else:
+        page = 1
+
+    # 페이지 만큼 offset 변경하여 데이터 반복
+    for i in range(1, page):
+        offset = i * 1000 + 1
+
+        group_payload = {
+            "startTime": start_date,
+            "endTime": end_date,
+            "selector": {
+                "orderBy": [
+                    {
+                        "field": "keyword",
+                        "sortOrder": "ASCENDING"
+                    }
+                ],
+                "pagination": {
+                    "offset": offset,
+                    "limit": 1000
+                }
+            },
+            "timeZone": "ORTZ",
+            "granularity": "DAILY",
+            "returnRowTotals": True,
+            "returnGrandTotals": True,
+            "returnRecordsWithNoMetrics": True
+        }
+
+        group_payload = json.dumps(group_payload)
+        ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+        ASA_Download = requests.post(keyword_url,
+                                     cert=(ROOT_DIR + '/' + 'ECHO_APPLESEARCH_ETL2.pem',
+                                           ROOT_DIR + '/' + 'ECHO_APPLESEARCH__ETL2.key'),
+                                     verify=True, headers=headers, data=group_payload)
+
+        resJson = json.loads(ASA_Download.text.encode(encoding='euckr', errors='ignore').decode(encoding='euckr'))
+        resultData.extend(resJson['data']['reportingDataResponse']['row'])  # 데이터 저장
+        # [x.setdefault('campaignId', campid) for x in resultData]
+        # [x.setdefault('campaignName', campaignName) for x in resultData]
+    for x in resultData:
+        x['campaignId'] = str(campid)
+        x['campaignName'] = str(campaignName)
+
+    return resultData
+
+
+def camp_data_flat(resultData):  # 캠페인 데이터 플랫 함수
+    return_result = []
+
+    for data in resultData:
+        flat_data_format = {
+            "orgId": "",
+            "clientName": "",
+            "campaignId": "",
+            "campaign": "",
+            "budgetAmount": 0,
+            "currency": ""
+        }
+        if 'orgId' in data.keys():
+            flat_data_format['orgId'] = data['orgId']  # 메타데이터 시작
+        if 'id' in data.keys():
+            flat_data_format['campaignId'] = data['id']
+        if 'name' in data.keys():
+            flat_data_format['campaign'] = data['name']
+        if 'clientName' in data['locInvoiceDetails'].keys():
+            flat_data_format['clientName'] = data['locInvoiceDetails']['clientName']
+        if 'budgetAmount' in data.keys():
+            flat_data_format['budgetAmount'] = data['budgetAmount']['amount']
+        if 'currency' in data['budgetAmount'].keys():
+            flat_data_format['currency'] = data['budgetAmount']['currency']
+
+        return_result.append(flat_data_format.copy())
+    return return_result
+
+
+def adgroup_data_flat(resultData,
+                      camp_info):  # 광고그룹 중 Search Match만 뽑아내는 데이터 플랫 함수
+    return_result = []
+    print(resultData)
+    print('#######')
+
+    for n in resultData['granularity']:  # 최대 30일치 데이터가 들어갈거니까 range 30으로 지정
+        resultData['campaignId'] = str(camp_info['campaignId'])
+        resultData['campaignName'] = camp_info['campaign']
+
+        flat_data_format = {
+            "date": "",
+            "campaignName": "",
+            "campaignId": "",
+            "adGroupName": "",
+            "adGroupId": "",
+            "adGroupDeleted": "",
+            "keyword": "-",
+            "keywordId": "-",
+            "keywordStatus": "-",
+            "matchType": "-",
+            "deleted": "-",
+            "impressions": 0,
+            "taps": 0,
+            "installs": 0,
+            "newDownloads": 0,
+            "redownloads": 0,
+            "latOnInstalls": 0,
+            "latOffInstalls": 0,
+            "localSpend": 0,
+            "currency": ""
+        }
+        if 'date' in n.keys():
+            flat_data_format['date'] = n['date']
+        if 'campaignName' in resultData.keys():
+            flat_data_format['campaignName'] = resultData['campaignName']
+        if 'campaignId' in resultData.keys():
+            flat_data_format['campaignId'] = resultData['campaignId']
+        if 'adGroupName' in resultData['metadata'].keys():
+            flat_data_format['adGroupName'] = resultData['metadata']['adGroupName']  # 메타데이터 시작
+        if 'adGroupId' in resultData['metadata'].keys():
+            flat_data_format['adGroupId'] = resultData['metadata']['adGroupId']
+        if 'deleted' in resultData['metadata'].keys():
+            flat_data_format['adGroupDeleted'] = resultData['metadata']['deleted']
+
+        try:
+            if 'impressions' in n.keys():  # 수치 데이터 시작
+                flat_data_format['impressions'] = n['impressions']
+                # if flat_data_format['impressions'] == n :
+                #     continue
+            if 'taps' in n.keys():
+                flat_data_format['taps'] = n['taps']
+            if 'installs' in n.keys():
+                flat_data_format['installs'] = n['installs']
+            if 'newDownloads' in n.keys():
+                flat_data_format['newDownloads'] = n['newDownloads']
+            if 'redownloads' in n.keys():
+                flat_data_format['redownloads'] = n['redownloads']
+            if 'latOnInstalls' in n.keys():
+                flat_data_format['latOnInstalls'] = n['latOnInstalls']
+            if 'latOffInstalls' in n.keys():
+                flat_data_format['latOffInstalls'] = n['latOffInstalls']
+            if 'amount' in n['localSpend'].keys():
+                flat_data_format['localSpend'] = n['localSpend']['amount']  # amount 값을 localSpend로
+            if 'currency' in n['localSpend'].keys():
+                flat_data_format['currency'] = n['localSpend']['currency']
+            return_result.append(flat_data_format.copy())
+
+        except Exception as e:
+            continue
+    return return_result
+
+
+def data_flat(resultData):  # 그룹/키워드 + 캠페인 데이터 플랫 함수
+    return_result = []
+    for daily_kwd in resultData:
+        try:
+            for n in daily_kwd['granularity']:
+                flat_data_format = {
+                    "date": "",
+                    "campaignName": "",
+                    "campaignId": "",
+                    "adGroupName": "",
+                    "adGroupId": "",
+                    "adGroupDeleted": "",
+                    "keyword": "",
+                    "keywordId": "",
+                    "keywordStatus": "",
+                    "matchType": "",
+                    "deleted": "",
+                    "impressions": 0,
+                    "taps": 0,
+                    "installs": 0,
+                    "newDownloads": 0,
+                    "redownloads": 0,
+                    "latOnInstalls": 0,
+                    "latOffInstalls": 0,
+                    "localSpend": 0,
+                    "currency": ""
+                }
+                if 'date' in n.keys():
+                    flat_data_format['date'] = n['date']
+                if 'campaignName' in daily_kwd.keys():
+                    flat_data_format['campaignName'] = daily_kwd['campaignName']
+                if 'campaignId' in daily_kwd.keys():
+                    flat_data_format['campaignId'] = daily_kwd['campaignId']
+                if 'adGroupName' in daily_kwd['metadata'].keys():
+                    flat_data_format['adGroupName'] = daily_kwd['metadata']['adGroupName']  # 메타데이터 시작
+                if 'adGroupId' in daily_kwd['metadata'].keys():
+                    flat_data_format['adGroupId'] = daily_kwd['metadata']['adGroupId']
+                if 'adGroupDeleted' in daily_kwd['metadata'].keys():
+                    flat_data_format['adGroupDeleted'] = daily_kwd['metadata']['adGroupDeleted']
+                if 'keyword' in daily_kwd['metadata'].keys():
+                    flat_data_format['keyword'] = daily_kwd['metadata']['keyword']
+                if 'keywordId' in daily_kwd['metadata'].keys():
+                    flat_data_format['keywordId'] = daily_kwd['metadata']['keywordId']
+                if 'keywordStatus' in daily_kwd['metadata'].keys():
+                    flat_data_format['keywordStatus'] = daily_kwd['metadata']['keywordStatus']
+                if 'matchType' in daily_kwd['metadata'].keys():
+                    flat_data_format['matchType'] = daily_kwd['metadata']['matchType']
+                if 'deleted' in daily_kwd['metadata'].keys():
+                    flat_data_format['deleted'] = daily_kwd['metadata']['deleted']  # 메타데이터 끝
+                try:
+                    if 'impressions' in n.keys():  # 수치 데이터 시작
+                        flat_data_format['impressions'] = n['impressions']
+                        # if flat_data_format['impressions'] == 0 :
+                        #     continue
+                    if 'taps' in n.keys():
+                        flat_data_format['taps'] = n['taps']
+                    if 'installs' in n.keys():
+                        flat_data_format['installs'] = n['installs']
+                    if 'newDownloads' in n.keys():
+                        flat_data_format['newDownloads'] = n['newDownloads']
+                    if 'redownloads' in n.keys():
+                        flat_data_format['redownloads'] = n['redownloads']
+                    if 'latOnInstalls' in n.keys():
+                        flat_data_format['latOnInstalls'] = n['latOnInstalls']
+                    if 'latOffInstalls' in n.keys():
+                        flat_data_format['latOffInstalls'] = n['latOffInstalls']
+                    if 'amount' in n['localSpend'].keys():
+                        flat_data_format['localSpend'] = n['localSpend'][
+                            'amount']  # amount 값을 localSpend로
+                    if 'currency' in n['localSpend'].keys():
+                        flat_data_format['currency'] = n['localSpend']['currency']
+                    return_result.append(flat_data_format.copy())
+
+                except Exception as e:
+                    continue
+        except Exception as e2:
+            continue
+
+    return return_result
+
+
+# ********************************************************************************** 이 아래부터 코드! **********************************************************************************************
+
+
+if __name__ == '__main__':
+
+    # text 파일에서 asa customer id 가져오기 ( 콤마 기준으로 분리 )
+
+    with open('/home/ec2-user/ETL_AppAccount.csv', 'r', encoding='utf-8') as id_file:
+        next(id_file)
+        account_info = []
+        for x in id_file :
+            account_info.append(x.replace("\n", "").split(','))
+        print(account_info)
+
+    # 전역? 변수 지정
+    end_date = (datetime.date.today() - datetime.timedelta(1)).strftime('%Y-%m-%d')  # yyyy-MM-dd yesterday
+    start_date = (datetime.date.today() - datetime.timedelta(30)).strftime('%Y-%m-%d')  # yyyy-MM-dd  -30d
+
+    for accindex in account_info:
+
+        account_en = accindex[0]  # account_en
+        account_ko = accindex[1]  # account_ko
+        customerId = accindex[2]  # account_no
+        print(account_en,account_ko,customerId)
+        headers = {'Authorization': 'orgId=' + str(customerId),
+                   'Content-Type': 'application/json'
+                   }
+
+        # 캠페인 데이터 가져오기, 계정명 뽑아내기
+        camp_resultData = get_camp_data(headers, start_date, end_date)
+        account = camp_resultData[0]['locInvoiceDetails']['clientName']
+        print(account)
+        # 저장된 데이터 flat
+        camp_flatten_data = camp_data_flat(camp_resultData)
+
+        # 캠페인 아이디 뽑아내기
+
+        camp_list = []
+        for data in camp_flatten_data:
+            camp_id_format = {
+                "campaignId": "",
+                "campaign": ""
+            }
+            if 'campaignId' in data.keys():
+                camp_id_format['campaignId'] = data['campaignId']
+            if 'campaign' in data.keys():
+                camp_id_format['campaign'] = data['campaign']
+
+            camp_list.append(camp_id_format.copy())
+
+
+        # 캠페인 리스트에서 뽑아서 키워드 데이터 불러오기, 플랫 작업 하기
+        print(camp_list)
+
+        flatten_data = []
+
+        for camp_info in camp_list:
+            try:
+                adgroup_resultData = get_adgroup_data(headers, start_date, end_date, camp_info)
+            except Exception as e:
+                continue
+            for x in adgroup_resultData:
+                try:
+                    if "Match" in x['metadata']['adGroupName'] \
+                            or "match" in x['metadata']['adGroupName'] \
+                            or "MATCH" in x['metadata']['adGroupName']:
+                        flatten_data.extend(adgroup_data_flat(x, camp_info).copy())
+                except Exception as e:
+                    continue
+            resultData = get_kwd_data(headers, start_date, end_date, camp_info)
+            flatten_data.extend(data_flat(resultData).copy())
+
+        # flat 완료 후 인덱스 지워 파일로 저장(전부 0인 값들도 지우기)
+        pd = pandas.DataFrame(flatten_data)
+        pd = pd[(pd.impressions > 0) | (pd.taps > 0) | (pd.installs > 0)]
+
+        # 열 순서 고정하기
+        pd_column_order = ["date", "campaignName", "campaignId", "adGroupName", "adGroupId", "adGroupDeleted", "keyword",
+                           "keywordId", "keywordStatus", "matchType", "deleted", "impressions", "taps", "installs",
+                           "newDownloads", "redownloads", "latOnInstalls", "latOffInstalls", "localSpend", "currency"]
+        pd = pd.reindex(columns=pd_column_order)
+
+        # 파일 저장 경로 지정
+        ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+        file_dir = ROOT_DIR + '/result_asa_final_%s.csv' % account_en
+        pd.to_csv(file_dir, index=False, encoding='euckr')
+
+        # 파일 S3에 업로드하기
+        s3_directory = "prod/applesearchad/{}/{}/{}_{}.csv".format(account_en, end_date, account_en, end_date)
+        s3 = boto3.resource('s3')
+        s3.meta.client.upload_file(file_dir, 'echo-247report-data', s3_directory)
+
+
+        # OS에 쌓인 파일 지우기
+        if os.path.isfile(file_dir):
+            os.remove(file_dir)
+            print("file removed!")
